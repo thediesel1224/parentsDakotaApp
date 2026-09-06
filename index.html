@@ -75,6 +75,7 @@
     </div>
     <div class="actions">
       <button id="suggestBtn" class="btn ghost">&#128161; Suggest improvement<span id="sugCount" class="count" style="display:none"></span></button>
+      <button id="auditBtn" class="btn ghost">&#128220; Audit log</button>
       <button id="addBtn" class="btn ghost" style="display:none">+ Add day</button>
       <button id="editBtn" class="btn">&#9998; Edit</button>
     </div>
@@ -94,6 +95,27 @@
         <button id="sugPost" class="btn primary">Post suggestion</button>
       </div>
       <div class="modal-list" id="sugList"></div>
+    </div>
+  </div>
+
+  <div id="auditOverlay" class="overlay" style="display:none">
+    <div class="modal">
+      <div class="modal-head">
+        <strong>Audit log</strong>
+        <button id="audClose" class="x" title="Close">×</button>
+      </div>
+      <div class="modal-list" id="audList"></div>
+    </div>
+  </div>
+
+  <div id="nameOverlay" class="overlay" style="display:none">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-head"><strong>Welcome</strong></div>
+      <div class="modal-new">
+        <p style="margin:0;font-size:13px;color:#465059">Enter your name — it's shown on your edits and suggestions.</p>
+        <input id="nameInput" class="in" type="text" placeholder="Your name">
+        <button id="nameGo" class="btn primary">Continue</button>
+      </div>
     </div>
   </div>
 </main>
@@ -149,20 +171,22 @@ const SAMPLE_SUGGESTIONS = [
   { id:"s2", body:"Could we auto-fill drive times from Google Maps?", author:"Garrett", created_at:"2026-09-02T15:05:00Z" },
 ];
 
+const SAMPLE_AUDIT = [
+  { id:"a1", created_at:"2026-09-02T16:10:00Z", actor:"Alex",    action:"update", target:"9/30 → Custer SP · Lodging",     old_value:"", new_value:"Sylvan Lake Lodge" },
+  { id:"a2", created_at:"2026-09-02T16:12:00Z", actor:"Garrett", action:"update", target:"10/6 → Medora, ND · Drive Time", old_value:"", new_value:"~4 hrs" },
+];
+
 let rows = [];
 let editing = false;
 let active = null;   // { id, key } currently focused
 let db = null;
 let suggestions = [];
+let auditLog = [];
 
 /* ---------- reviewer identity (per-device, localStorage) ---------- */
 function reviewerName() { return localStorage.getItem("reviewerName") || ""; }
-function setReviewer() {
-  const name = prompt("Your name (stamped on your edits):", reviewerName() || "");
-  if (name && name.trim()) localStorage.setItem("reviewerName", name.trim());
-  updateEditbar();
-}
-function ensureReviewer() { if (!reviewerName()) setReviewer(); }
+function setReviewer() { showNameGate(); }
+function ensureReviewer() { if (!reviewerName()) showNameGate(); }
 
 /* ---------- small DOM helpers ---------- */
 function el(tag, cls) { const e = document.createElement(tag); if (cls) e.className = cls; return e; }
@@ -226,8 +250,18 @@ function buildCell(r, c) {
   input.classList.add("in");
   input.dataset.id = r.id;
   input.dataset.key = c.key;
-  const commit = () => { updateLocal(r.id, c.key, input.value); active = null; saveCell(r.id, c.key, input.value); };
-  input.addEventListener("focus", () => { active = { id: r.id, key: c.key }; });
+  let startVal = val;
+  const commit = () => {
+    const newVal = input.value;
+    updateLocal(r.id, c.key, newVal);
+    active = null;
+    if (newVal !== startVal) {
+      saveCell(r.id, c.key, newVal);
+      logChange(r, c, startVal, newVal);
+      startVal = newVal;
+    }
+  };
+  input.addEventListener("focus", () => { active = { id: r.id, key: c.key }; startVal = input.value; });
   input.addEventListener("input", () => updateLocal(r.id, c.key, input.value));
   input.addEventListener("change", commit);
   input.addEventListener("blur", commit);
@@ -306,17 +340,19 @@ async function addDay() {
   const next = rows.length ? Math.max.apply(null, rows.map((r) => r.sort_order)) + 1 : 1;
   if (DEMO || !db) {
     rows.push({ id: "d" + Date.now(), sort_order: next, day_type: "explore" });
-    render();
+    render(); logAdd();
     return;
   }
   const { data } = await db.from("itinerary").insert({ sort_order: next, day_type: "explore" }).select();
-  if (data) { rows.push.apply(rows, data); rows.sort((a, b) => a.sort_order - b.sort_order); render(); }
+  if (data) { rows.push.apply(rows, data); rows.sort((a, b) => a.sort_order - b.sort_order); render(); logAdd(); }
 }
 
 async function removeDay(id) {
+  const target = rows.find((r) => r.id === id);
   if (!confirm("Delete this day?")) return;
   rows = rows.filter((r) => r.id !== id);
   render();
+  logDelete(target || {});
   if (DEMO || !db) return;
   await db.from("itinerary").delete().eq("id", id);
 }
@@ -428,6 +464,92 @@ function handleSuggestionChange(payload) {
   if (document.getElementById("overlay").style.display !== "none") renderSuggestions();
 }
 
+/* ---------- audit log ---------- */
+function dayLabel(r) {
+  let d = "";
+  if (r && r.trip_date) { const x = new Date(r.trip_date + "T00:00:00"); d = (x.getMonth() + 1) + "/" + x.getDate(); }
+  const loc = (r && r.location) ? r.location : "";
+  return ((d ? d + " " : "") + loc).trim() || "day";
+}
+function actionVerb(a) { return a === "add" ? "Added" : a === "delete" ? "Deleted" : "Edited"; }
+
+async function logAudit(entry) {
+  entry.actor = reviewerName() || "anonymous";
+  if (DEMO || !db) {
+    auditLog.unshift(Object.assign({ id: "a" + Date.now() + Math.round(Math.random() * 1e6), created_at: new Date().toISOString() }, entry));
+    if (auditOpen()) renderAudit();
+    return;
+  }
+  const { data } = await db.from("audit_log").insert(entry).select();
+  if (data && data[0] && !auditLog.some((x) => x.id === data[0].id)) {
+    auditLog.unshift(data[0]);
+    if (auditOpen()) renderAudit();
+  }
+}
+function logChange(r, c, oldV, newV) { logAudit({ action: "update", target: dayLabel(r) + " · " + c.label, old_value: oldV, new_value: newV }); }
+function logAdd() { logAudit({ action: "add", target: "new day", old_value: "", new_value: "" }); }
+function logDelete(r) { logAudit({ action: "delete", target: dayLabel(r), old_value: "", new_value: "" }); }
+
+function auditOpen() { return document.getElementById("auditOverlay").style.display !== "none"; }
+
+function renderAudit() {
+  const list = document.getElementById("audList");
+  list.innerHTML = "";
+  if (!auditLog.length) {
+    const e = el("div", "sug-empty");
+    e.textContent = "No changes logged yet.";
+    list.appendChild(e);
+    return;
+  }
+  auditLog.forEach((a) => {
+    const item = el("div", "sug");
+    const body = el("div", "sug-body");
+    let txt = actionVerb(a.action) + " " + a.target;
+    if (a.action === "update") txt += ": “" + (a.old_value || "—") + "” → “" + (a.new_value || "—") + "”";
+    body.textContent = txt;
+    const meta = el("div", "sug-meta");
+    meta.textContent = (a.actor || "anonymous") + " · " + fmtWhen(a.created_at);
+    item.appendChild(body);
+    item.appendChild(meta);
+    list.appendChild(item);
+  });
+}
+
+async function openAudit() {
+  if (!DEMO && db) {
+    const { data } = await db.from("audit_log").select("*").order("created_at", { ascending: false }).limit(200);
+    if (data) auditLog = data;
+  }
+  renderAudit();
+  document.getElementById("auditOverlay").style.display = "flex";
+}
+function closeAudit() { document.getElementById("auditOverlay").style.display = "none"; }
+
+function handleAuditChange(payload) {
+  if (payload.eventType !== "INSERT") return;
+  const n = payload.new;
+  if (auditLog.some((x) => x.id === n.id)) return;
+  auditLog.unshift(n);
+  if (auditOpen()) renderAudit();
+}
+
+/* ---------- name gate ---------- */
+function showNameGate() {
+  const ov = document.getElementById("nameOverlay");
+  const inp = document.getElementById("nameInput");
+  inp.value = reviewerName() || "";
+  ov.style.display = "flex";
+  inp.focus();
+}
+function saveName() {
+  const inp = document.getElementById("nameInput");
+  const n = inp.value.trim();
+  if (!n) { inp.focus(); return; }
+  localStorage.setItem("reviewerName", n);
+  document.getElementById("nameOverlay").style.display = "none";
+  updateEditbar();
+}
+
 /* ---------- boot ---------- */
 async function init() {
   const status = document.getElementById("status");
@@ -441,10 +563,16 @@ async function init() {
   document.getElementById("sugClose").onclick = closeSuggest;
   document.getElementById("sugPost").onclick = postSuggestion;
   document.getElementById("overlay").onclick = (e) => { if (e.target.id === "overlay") closeSuggest(); };
+  document.getElementById("auditBtn").onclick = openAudit;
+  document.getElementById("audClose").onclick = closeAudit;
+  document.getElementById("auditOverlay").onclick = (e) => { if (e.target.id === "auditOverlay") closeAudit(); };
+  document.getElementById("nameGo").onclick = saveName;
+  document.getElementById("nameInput").addEventListener("keydown", (e) => { if (e.key === "Enter") saveName(); });
 
   if (DEMO) {
     rows = SAMPLE.map((r) => Object.assign({}, r));
     suggestions = SAMPLE_SUGGESTIONS.map((s) => Object.assign({}, s));
+    auditLog = SAMPLE_AUDIT.map((a) => Object.assign({}, a));
     updateBadge();
     status.style.display = "";
     status.textContent = "🧪 Preview (demo data). Set DEMO = false and fill CONFIG to go live.";
@@ -474,6 +602,12 @@ async function init() {
   updateBadge();
   db.channel("suggestions-live")
     .on("postgres_changes", { event: "*", schema: "public", table: "suggestions" }, handleSuggestionChange)
+    .subscribe();
+
+  const aud = await db.from("audit_log").select("*").order("created_at", { ascending: false }).limit(200);
+  auditLog = aud.data || [];
+  db.channel("audit-live")
+    .on("postgres_changes", { event: "*", schema: "public", table: "audit_log" }, handleAuditChange)
     .subscribe();
 }
 
