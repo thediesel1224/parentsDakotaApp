@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dakota Trip 2026</title>
+<style>
+  body { margin: 0; background: #f7f8fa; color: #1f2933;
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif; }
+  * { box-sizing: border-box; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 28px; }
+  .bar { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 14px; gap: 16px; }
+  h1 { margin: 0; font-size: 26px; letter-spacing: -.3px; }
+  .sub { color: #6b7280; font-size: 14px; margin-top: 2px; }
+  .actions { display: flex; gap: 8px; }
+  .btn { border: 1px solid #d3d8de; background: #fff; color: #1f2933; font-size: 14px;
+    padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+  .btn:hover { background: #f2f4f7; }
+  .btn.primary { background: #137547; border-color: #137547; color: #fff; }
+  .btn.ghost { color: #465059; }
+  .editbar { background: #fff7e6; border: 1px solid #f0c675; color: #8a6d2f;
+    padding: 8px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+  .editbar a { color: #8a6d2f; font-weight: 600; }
+  .status { background: #eef2ff; border: 1px solid #c7d2fe; color: #3730a3;
+    padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+  .card { background: #fff; border: 1px solid #e2e6ea; border-radius: 12px; overflow-x: auto;
+    box-shadow: 0 1px 3px rgba(16,24,40,.04); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { padding: 9px 11px; text-align: left; vertical-align: top; border-bottom: 1px solid #e2e6ea; }
+  thead th { background: #f0f2f5; font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px;
+    color: #465059; white-space: nowrap; }
+  th.comment, td.comment { background: #fff7e6; }
+  th.comment { border-bottom: 2px solid #f0c675; }
+  tbody tr:hover td { background: #fbfcfe; }
+  tbody tr:hover td.comment { background: #fdf1d8; }
+  .date { font-weight: 700; white-space: nowrap; }
+  .dow { color: #6b7280; font-weight: 400; font-size: 11px; display: block; }
+  .tag { display: inline-block; font-size: 10.5px; padding: 2px 9px; border-radius: 20px; font-weight: 600; }
+  .ph { color: #c3c9d0; }
+  .in { width: 100%; font: inherit; color: inherit; border: 1px solid #cfd4da; border-radius: 6px;
+    padding: 5px 7px; background: #fff; }
+  .in:focus { outline: none; border-color: #137547; box-shadow: 0 0 0 2px #13754722; }
+  .in.area { resize: vertical; }
+  table.is-editing td { background: #fcfcfd; }
+  .del { border: none; background: #fdeef0; color: #b42318; width: 26px; height: 26px;
+    border-radius: 6px; cursor: pointer; font-size: 16px; line-height: 1; }
+  .del:hover { background: #f9d5da; }
+  .count { display:inline-block; margin-left:6px; background:#137547; color:#fff; font-size:11px;
+    min-width:18px; padding:0 5px; height:18px; line-height:18px; text-align:center; border-radius:9px; }
+  .overlay { position:fixed; inset:0; background:rgba(16,24,40,.45); display:flex;
+    align-items:center; justify-content:center; padding:20px; z-index:50; }
+  .modal { background:#fff; border-radius:14px; width:100%; max-width:520px; max-height:82vh;
+    display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(16,24,40,.25); overflow:hidden; }
+  .modal-head { display:flex; justify-content:space-between; align-items:center;
+    padding:16px 18px; border-bottom:1px solid #e2e6ea; }
+  .modal-head strong { font-size:16px; }
+  .x { border:none; background:none; font-size:22px; line-height:1; color:#6b7280; cursor:pointer; }
+  .x:hover { color:#1f2933; }
+  .modal-new { padding:14px 18px; border-bottom:1px solid #e2e6ea; display:flex; flex-direction:column; gap:8px; }
+  .modal-new .btn { align-self:flex-end; }
+  .modal-list { padding:8px 18px 18px; overflow-y:auto; }
+  .sug { padding:12px 0; border-bottom:1px solid #eef1f4; }
+  .sug:last-child { border-bottom:none; }
+  .sug-body { white-space:pre-wrap; }
+  .sug-meta { color:#6b7280; font-size:11.5px; margin-top:4px; }
+  .sug-empty { color:#9aa2ab; font-size:13px; padding:18px 0; text-align:center; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="bar">
+    <div>
+      <h1>Dakota Trip 2026</h1>
+      <div class="sub">South Dakota &amp; North Dakota loop · Sep 27 – Oct 9</div>
+    </div>
+    <div class="actions">
+      <button id="suggestBtn" class="btn ghost">&#128161; Suggest improvement<span id="sugCount" class="count" style="display:none"></span></button>
+      <button id="addBtn" class="btn ghost" style="display:none">+ Add day</button>
+      <button id="editBtn" class="btn">&#9998; Edit</button>
+    </div>
+  </div>
+  <div id="editbar" class="editbar" style="display:none"></div>
+  <div id="status" class="status" style="display:none"></div>
+  <div id="tableHost"></div>
+
+  <div id="overlay" class="overlay" style="display:none">
+    <div class="modal">
+      <div class="modal-head">
+        <strong>Suggest improvements</strong>
+        <button id="sugClose" class="x" title="Close">×</button>
+      </div>
+      <div class="modal-new">
+        <textarea id="sugInput" class="in area" rows="3" placeholder="What would make this app better?"></textarea>
+        <button id="sugPost" class="btn primary">Post suggestion</button>
+      </div>
+      <div class="modal-list" id="sugList"></div>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ==================== CONFIG ==================== */
+const DEMO = true;   // true = sample data, no DB calls (preview). false = live Supabase.
+const CONFIG = {
+  SUPABASE_URL:      "https://YOUR-PROJECT.supabase.co",
+  SUPABASE_ANON_KEY: "YOUR-ANON-PUBLIC-KEY",
+};
+/* =============================================== */
+
+const TYPES = {
+  arrive:  { label: "Arrive",  color: "#1a56db", bg: "#e8f0fe" },
+  drive:   { label: "Drive",   color: "#1a56db", bg: "#e8f0fe" },
+  depart:  { label: "Depart",  color: "#1a56db", bg: "#e8f0fe" },
+  hike:    { label: "Hike",    color: "#137547", bg: "#e7f5ec" },
+  explore: { label: "Explore", color: "#b42318", bg: "#fdeef0" },
+  park:    { label: "Park",    color: "#6941c6", bg: "#efeafc" },
+};
+
+const COLS = [
+  { key: "trip_date",  label: "Date",              w: 84,  kind: "date" },
+  { key: "location",   label: "Location / Theme",  w: 130, kind: "text" },
+  { key: "plan",       label: "Plan & Activities", w: 240, kind: "area" },
+  { key: "route",      label: "Route",             w: 140, kind: "text" },
+  { key: "drive_time", label: "Drive Time",        w: 90,  kind: "text" },
+  { key: "lodging",    label: "Lodging",           w: 150, kind: "text" },
+  { key: "notes",      label: "Notes",             w: 140, kind: "area" },
+];
+
+// Demo/preview data (delete this array to blank the app for a future build).
+const SAMPLE = [
+  { id:"d1",  sort_order:1,  trip_date:"2026-09-27", location:"Rapid City",            day_type:"arrive",  plan:"8:45 AM flight from SJC. Pick up rental car ~4:00 PM.", route:"SJC → RAP", drive_time:"", lodging:"Hotel Alex Johnson", booking:"", notes:"Checkout 9/30.", comments:"" },
+  { id:"d2",  sort_order:2,  trip_date:"2026-09-28", location:"Badlands NP",           day_type:"hike",    plan:"Notch Trail, etc.", route:"", drive_time:"", lodging:"Hotel Alex Johnson", booking:"", notes:"", comments:"" },
+  { id:"d3",  sort_order:3,  trip_date:"2026-09-29", location:"Black Hills",           day_type:"hike",    plan:"Buzzard Trail — or explore Rapid City. Pick up Annie & Garrett.", route:"", drive_time:"", lodging:"Hotel Alex Johnson", booking:"", notes:"A&G join.", comments:"" },
+  { id:"d4",  sort_order:4,  trip_date:"2026-09-30", location:"→ Custer SP",           day_type:"drive",   plan:"Leave Rapid City. Drive to Sylvan Lake Lodge via Mt Rushmore.", route:"Rapid City → Sylvan Lake", drive_time:"", lodging:"Sylvan Lake Lodge", booking:"", notes:"Mt Rushmore en route.", comments:"" },
+  { id:"d5",  sort_order:5,  trip_date:"2026-10-01", location:"Black Hills",           day_type:"hike",    plan:"Black Elk Peak.", route:"", drive_time:"", lodging:"Sylvan Lake Lodge", booking:"", notes:"", comments:"" },
+  { id:"d6",  sort_order:6,  trip_date:"2026-10-02", location:"Wind Cave NP",          day_type:"park",    plan:"Wind Cave.", route:"", drive_time:"", lodging:"Sylvan Lake Lodge", booking:"", notes:"", comments:"" },
+  { id:"d7",  sort_order:7,  trip_date:"2026-10-03", location:"→ Black Forest Inn",    day_type:"drive",   plan:"Morning hike, then drive to Black Forest Inn.", route:"Sylvan Lake → Black Forest Inn", drive_time:"", lodging:"Black Forest Inn", booking:"", notes:"", comments:"" },
+  { id:"d8",  sort_order:8,  trip_date:"2026-10-04", location:"Black Hills",           day_type:"explore", plan:"Maybe kayak. Take A&G to Rapid City to pick up their car.", route:"→ Rapid City → back", drive_time:"", lodging:"Black Forest Inn", booking:"", notes:"A&G depart.", comments:"" },
+  { id:"d9",  sort_order:9,  trip_date:"2026-10-05", location:"Spearfish",             day_type:"hike",    plan:"Spearfish Canyon, then check in to Spearfish lodge.", route:"→ Spearfish", drive_time:"", lodging:"Spearfish Lodge", booking:"", notes:"", comments:"" },
+  { id:"d10", sort_order:10, trip_date:"2026-10-06", location:"→ Medora, ND",          day_type:"drive",   plan:"Maybe short AM hike, then drive to North Dakota. Check in Rough Rider Hotel.", route:"Spearfish → Medora, ND", drive_time:"~4 hrs", lodging:"Rough Rider Hotel", booking:"", notes:"~4 hrs to Medora.", comments:"" },
+  { id:"d11", sort_order:11, trip_date:"2026-10-07", location:"Theodore Roosevelt NP", day_type:"park",    plan:"Explore the park and the new museum.", route:"", drive_time:"", lodging:"Rough Rider Hotel", booking:"", notes:"", comments:"" },
+  { id:"d12", sort_order:12, trip_date:"2026-10-08", location:"→ Deadwood",            day_type:"drive",   plan:"Morning in TRNP, then leave for Deadwood. Explore downtown.", route:"Medora → Deadwood", drive_time:"", lodging:"Deadwood", booking:"", notes:"Night in Deadwood.", comments:"" },
+  { id:"d13", sort_order:13, trip_date:"2026-10-09", location:"Rapid City",            day_type:"depart",  plan:"Back to Rapid City for 1:00 PM flight home.", route:"Deadwood → RAP", drive_time:"", lodging:"", booking:"", notes:"1:00 PM flight.", comments:"" },
+];
+
+const SAMPLE_SUGGESTIONS = [
+  { id:"s1", body:"Add a column for reservation confirmation numbers.", author:"Alex", created_at:"2026-09-01T17:30:00Z" },
+  { id:"s2", body:"Could we auto-fill drive times from Google Maps?", author:"Garrett", created_at:"2026-09-02T15:05:00Z" },
+];
+
+let rows = [];
+let editing = false;
+let active = null;   // { id, key } currently focused
+let db = null;
+let suggestions = [];
+
+/* ---------- reviewer identity (per-device, localStorage) ---------- */
+function reviewerName() { return localStorage.getItem("reviewerName") || ""; }
+function setReviewer() {
+  const name = prompt("Your name (stamped on your edits):", reviewerName() || "");
+  if (name && name.trim()) localStorage.setItem("reviewerName", name.trim());
+  updateEditbar();
+}
+function ensureReviewer() { if (!reviewerName()) setReviewer(); }
+
+/* ---------- small DOM helpers ---------- */
+function el(tag, cls) { const e = document.createElement(tag); if (cls) e.className = cls; return e; }
+
+function dateView(val) {
+  if (!val) { const s = el("span", "ph"); s.textContent = "—"; return s; }
+  const d = new Date(val + "T00:00:00");
+  const s = el("span", "date");
+  s.textContent = (d.getMonth() + 1) + "/" + d.getDate();
+  const dow = el("span", "dow");
+  dow.textContent = d.toLocaleDateString("en-US", { weekday: "short" });
+  s.appendChild(dow);
+  return s;
+}
+
+function typeTag(val) {
+  const t = TYPES[val];
+  if (!t) { const s = el("span", "ph"); s.textContent = "—"; return s; }
+  const s = el("span", "tag");
+  s.textContent = t.label;
+  s.style.background = t.bg;
+  s.style.color = t.color;
+  return s;
+}
+
+function updateLocal(id, key, value) { const r = rows.find((x) => x.id === id); if (r) r[key] = value; }
+
+async function saveCell(id, key, value) {
+  if (DEMO || !db) return; // local state already updated; nothing to persist in preview
+  await db.from("itinerary")
+    .update({ [key]: value, updated_by: reviewerName(), updated_at: new Date().toISOString() })
+    .eq("id", id);
+}
+
+/* ---------- render ---------- */
+function buildCell(r, c) {
+  const td = el("td", c.comment ? "comment" : "");
+  const val = r[c.key] == null ? "" : r[c.key];
+
+  if (!editing) {
+    if (c.kind === "date") td.appendChild(dateView(val));
+    else if (c.kind === "type") td.appendChild(typeTag(val));
+    else if (val === "") { const s = el("span", "ph"); s.textContent = "—"; td.appendChild(s); }
+    else { const s = el("span"); s.textContent = val; td.appendChild(s); }
+    return td;
+  }
+
+  let input;
+  if (c.kind === "date") { input = el("input"); input.type = "date"; input.value = val; }
+  else if (c.kind === "type") {
+    input = el("select");
+    Object.keys(TYPES).forEach((t) => {
+      const o = el("option"); o.value = t; o.textContent = TYPES[t].label;
+      if (t === val) o.selected = true;
+      input.appendChild(o);
+    });
+  }
+  else if (c.kind === "area") { input = el("textarea"); input.rows = 2; input.value = val; input.classList.add("area"); }
+  else { input = el("input"); input.type = "text"; input.value = val; }
+
+  input.classList.add("in");
+  input.dataset.id = r.id;
+  input.dataset.key = c.key;
+  const commit = () => { updateLocal(r.id, c.key, input.value); active = null; saveCell(r.id, c.key, input.value); };
+  input.addEventListener("focus", () => { active = { id: r.id, key: c.key }; });
+  input.addEventListener("input", () => updateLocal(r.id, c.key, input.value));
+  input.addEventListener("change", commit);
+  input.addEventListener("blur", commit);
+
+  td.appendChild(input);
+  return td;
+}
+
+function buildRow(r) {
+  const tr = el("tr");
+  tr.dataset.id = r.id;
+  COLS.forEach((c) => tr.appendChild(buildCell(r, c)));
+  if (editing) {
+    const td = el("td");
+    const b = el("button", "del");
+    b.textContent = "×"; b.title = "Delete day";
+    b.onclick = () => removeDay(r.id);
+    td.appendChild(b);
+    tr.appendChild(td);
+  }
+  return tr;
+}
+
+function updateEditbar() {
+  const bar = document.getElementById("editbar");
+  if (!editing) { bar.style.display = "none"; return; }
+  bar.style.display = "";
+  bar.innerHTML = "";
+  const who = reviewerName() || "anonymous";
+  const mode = DEMO
+    ? "Preview mode — edits are local only, nothing is saved."
+    : "Changes save automatically and sync to everyone.";
+  const t = el("span");
+  t.textContent = "Editing as " + who + " · " + mode + " ";
+  const a = el("a");
+  a.href = "#"; a.textContent = "change name";
+  a.onclick = (e) => { e.preventDefault(); setReviewer(); };
+  bar.appendChild(t); bar.appendChild(a);
+}
+
+function render() {
+  const host = document.getElementById("tableHost");
+  host.innerHTML = "";
+  const card = el("div", "card");
+  const table = el("table");
+  if (editing) table.className = "is-editing";
+
+  const thead = el("thead");
+  const htr = el("tr");
+  COLS.forEach((c) => {
+    const th = el("th", c.comment ? "comment" : "");
+    th.textContent = c.label;
+    th.style.minWidth = c.w + "px";
+    htr.appendChild(th);
+  });
+  if (editing) htr.appendChild(el("th"));
+  thead.appendChild(htr);
+  table.appendChild(thead);
+
+  const tbody = el("tbody");
+  rows.forEach((r) => tbody.appendChild(buildRow(r)));
+  table.appendChild(tbody);
+
+  card.appendChild(table);
+  host.appendChild(card);
+
+  document.getElementById("addBtn").style.display = editing ? "" : "none";
+  const eb = document.getElementById("editBtn");
+  eb.innerHTML = editing ? "&#10003; Done" : "&#9998; Edit";
+  eb.className = "btn" + (editing ? " primary" : "");
+  updateEditbar();
+}
+
+/* ---------- mutations ---------- */
+async function addDay() {
+  const next = rows.length ? Math.max.apply(null, rows.map((r) => r.sort_order)) + 1 : 1;
+  if (DEMO || !db) {
+    rows.push({ id: "d" + Date.now(), sort_order: next, day_type: "explore" });
+    render();
+    return;
+  }
+  const { data } = await db.from("itinerary").insert({ sort_order: next, day_type: "explore" }).select();
+  if (data) { rows.push.apply(rows, data); rows.sort((a, b) => a.sort_order - b.sort_order); render(); }
+}
+
+async function removeDay(id) {
+  if (!confirm("Delete this day?")) return;
+  rows = rows.filter((r) => r.id !== id);
+  render();
+  if (DEMO || !db) return;
+  await db.from("itinerary").delete().eq("id", id);
+}
+
+/* ---------- realtime ---------- */
+function handleChange(payload) {
+  const eventType = payload.eventType;
+  const n = payload.new;
+  const o = payload.old;
+
+  if (eventType === "INSERT") {
+    if (!rows.some((r) => r.id === n.id)) {
+      rows.push(n);
+      rows.sort((a, b) => a.sort_order - b.sort_order);
+      render();
+    }
+    return;
+  }
+  if (eventType === "DELETE") { rows = rows.filter((r) => r.id !== o.id); render(); return; }
+
+  const r = rows.find((x) => x.id === n.id);
+  if (!r) return;
+  Object.assign(r, n);
+
+  if (editing) {
+    COLS.forEach((c) => {
+      if (active && active.id === n.id && active.key === c.key) return; // don't clobber active field
+      const inp = document.querySelector('[data-id="' + n.id + '"][data-key="' + c.key + '"]');
+      const fresh = n[c.key] == null ? "" : n[c.key];
+      if (inp && document.activeElement !== inp && inp.value !== fresh) inp.value = fresh;
+    });
+  } else {
+    render();
+  }
+}
+
+/* ---------- suggestions ---------- */
+function fmtWhen(ts) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + ", " +
+         d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+function updateBadge() {
+  const b = document.getElementById("sugCount");
+  if (suggestions.length) { b.style.display = ""; b.textContent = suggestions.length; }
+  else b.style.display = "none";
+}
+
+function renderSuggestions() {
+  const list = document.getElementById("sugList");
+  list.innerHTML = "";
+  if (!suggestions.length) {
+    const e = el("div", "sug-empty");
+    e.textContent = "No suggestions yet — be the first.";
+    list.appendChild(e);
+    return;
+  }
+  suggestions.forEach((s) => {
+    const item = el("div", "sug");
+    const body = el("div", "sug-body");
+    body.textContent = s.body;
+    const meta = el("div", "sug-meta");
+    meta.textContent = (s.author || "anonymous") + " · " + fmtWhen(s.created_at);
+    item.appendChild(body);
+    item.appendChild(meta);
+    list.appendChild(item);
+  });
+}
+
+async function openSuggest() {
+  if (!DEMO && db) {
+    const { data } = await db.from("suggestions").select("*").order("created_at", { ascending: false });
+    if (data) { suggestions = data; updateBadge(); }
+  }
+  renderSuggestions();
+  document.getElementById("overlay").style.display = "flex";
+  document.getElementById("sugInput").focus();
+}
+
+function closeSuggest() { document.getElementById("overlay").style.display = "none"; }
+
+async function postSuggestion() {
+  const input = document.getElementById("sugInput");
+  const body = input.value.trim();
+  if (!body) return;
+  ensureReviewer();
+  const author = reviewerName();
+  input.value = "";
+
+  if (DEMO || !db) {
+    suggestions.unshift({ id: "s" + Date.now(), body: body, author: author, created_at: new Date().toISOString() });
+    updateBadge(); renderSuggestions();
+    return;
+  }
+  const { data } = await db.from("suggestions").insert({ body: body, author: author }).select();
+  if (data && data[0] && !suggestions.some((x) => x.id === data[0].id)) {
+    suggestions.unshift(data[0]); updateBadge(); renderSuggestions();
+  }
+}
+
+function handleSuggestionChange(payload) {
+  if (payload.eventType !== "INSERT") return;
+  const n = payload.new;
+  if (suggestions.some((x) => x.id === n.id)) return;
+  suggestions.unshift(n);
+  updateBadge();
+  if (document.getElementById("overlay").style.display !== "none") renderSuggestions();
+}
+
+/* ---------- boot ---------- */
+async function init() {
+  const status = document.getElementById("status");
+  document.getElementById("editBtn").onclick = () => {
+    editing = !editing; active = null;
+    if (editing) ensureReviewer();
+    render();
+  };
+  document.getElementById("addBtn").onclick = addDay;
+  document.getElementById("suggestBtn").onclick = openSuggest;
+  document.getElementById("sugClose").onclick = closeSuggest;
+  document.getElementById("sugPost").onclick = postSuggestion;
+  document.getElementById("overlay").onclick = (e) => { if (e.target.id === "overlay") closeSuggest(); };
+
+  if (DEMO) {
+    rows = SAMPLE.map((r) => Object.assign({}, r));
+    suggestions = SAMPLE_SUGGESTIONS.map((s) => Object.assign({}, s));
+    updateBadge();
+    status.style.display = "";
+    status.textContent = "🧪 Preview (demo data). Set DEMO = false and fill CONFIG to go live.";
+    render();
+    return;
+  }
+
+  if (CONFIG.SUPABASE_URL.indexOf("YOUR-PROJECT") !== -1 || CONFIG.SUPABASE_ANON_KEY.indexOf("YOUR-ANON") !== -1) {
+    status.style.display = "";
+    status.textContent = "⚙ Fill the CONFIG block (URL + anon key), then reload.";
+    return;
+  }
+
+  db = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+  const { data, error } = await db.from("itinerary").select("*").order("sort_order");
+  if (error) { status.style.display = ""; status.textContent = "Error loading: " + error.message; return; }
+
+  rows = data || [];
+  render();
+
+  db.channel("itinerary-live")
+    .on("postgres_changes", { event: "*", schema: "public", table: "itinerary" }, handleChange)
+    .subscribe();
+
+  const sug = await db.from("suggestions").select("*").order("created_at", { ascending: false });
+  suggestions = sug.data || [];
+  updateBadge();
+  db.channel("suggestions-live")
+    .on("postgres_changes", { event: "*", schema: "public", table: "suggestions" }, handleSuggestionChange)
+    .subscribe();
+}
+
+init();
+</script>
+</body>
+</html>
